@@ -21,7 +21,7 @@ return new class extends Migration
 
             // user role
             $table->string('role')->default(UserRole::User->value);
-            $table->mediumText('about');
+            $table->mediumText('about')->nullable();
 
             $table->rememberToken();
             $table->timestamps();
