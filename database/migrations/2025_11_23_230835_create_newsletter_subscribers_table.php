@@ -16,10 +16,11 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->string('name')->nullable();
             $table->string('status')->default('subscribed');
+            $table->string('unsubscribe_token', 64)->unique();
             $table->timestamp('subscribed_at')->nullable();
 
-            $table->string('unsubscribe_token', 64)->unique()->unique()->after('status');
-            $table->timestamp('unsubscribed_at')->nullable()->after('unsubscribe_token');
+
+            $table->timestamp('unsubscribed_at')->nullable();
             $table->timestamps();
         });
     }
