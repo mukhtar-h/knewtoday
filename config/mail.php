@@ -18,6 +18,11 @@ return [
 
     'contact_to' => env('MAIL_CONTACT_TO'),
 
+    'reply_to' => [
+        'address' => env('MAIL_REPLY_TO_ADDRESS'),
+        'name' => env('MAIL_REPLY_TO_NAME', env('APP_NAME', 'KNEWTODAY')),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Mailer Configurations
@@ -49,6 +54,13 @@ return [
             'password' => env('MAIL_PASSWORD'),
             'timeout' => null,
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
+        ],
+
+        'mailgun' => [
+            'transport' => 'mailgun',
+            // 'client' => [
+            //     'timeout' => 5,
+            // ],
         ],
 
         'ses' => [

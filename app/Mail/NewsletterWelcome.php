@@ -4,7 +4,6 @@ namespace App\Mail;
 
 use App\Models\NewsletterSubscriber;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -24,15 +23,16 @@ class NewsletterWelcome extends Mailable
     public function build()
     {
         $unsubscribeUrl = route('newsletter.unsubscribe.link', [
-            'subscriber'    => $this->subscriber->id,
-            'token'         => $this->subscriber->unsubscribe_token,
+            'subscriber' => $this->subscriber->id,
+            'token' => $this->subscriber->unsubscribe_token,
         ]);
 
         return $this
-            ->subject('You are subscribed to ' . config('app.name'))
+            ->subject('You are subscribed to '.config('app.name'))
+            ->replyTo(config('mail.reply_to.address'), config('mail.reply_to.name'))
             ->markdown('mail.newsletter.welcome', [
-                'subscriber'        => $this->subscriber,
-                'unsubscribeUrl'    => $unsubscribeUrl,
+                'subscriber' => $this->subscriber,
+                'unsubscribeUrl' => $unsubscribeUrl,
             ]);
     }
 

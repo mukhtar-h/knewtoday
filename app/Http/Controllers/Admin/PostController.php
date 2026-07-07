@@ -26,12 +26,19 @@ class PostController extends Controller
 
         $query = Post::with(['author', 'category'])->latest('updated_at');
 
-        if ($search = $request->get('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                    ->orWhere('slug', 'like', "%{$search}%")
-                    ->orWhereHas('author', function ($q2) use ($search) {
-                        $q2->where('name', 'like', "%{$search}%");
+        if ($request->filled('search')) {
+            $data = $request->validate([
+                'search' => ['required', 'string', 'max:100'],
+            ]);
+
+            $searchTerm = trim($data['search']);
+            $likeSearchTerm = '%'.addcslashes($searchTerm, '\\%_').'%';
+
+            $query->where(function ($postQuery) use ($likeSearchTerm) {
+                $postQuery->where('title', 'like', $likeSearchTerm)
+                    ->orWhere('slug', 'like', $likeSearchTerm)
+                    ->orWhereHas('author', function ($authorQuery) use ($likeSearchTerm) {
+                        $authorQuery->where('name', 'like', $likeSearchTerm);
                     });
             });
         }
@@ -44,9 +51,9 @@ class PostController extends Controller
             $query->where('category_id', $categoryId);
         }
 
-        $posts      = $query->paginate(15)->withQueryString();
+        $posts = $query->paginate(15)->withQueryString();
         $categories = Category::orderBy('name')->get();
-        $statuses   = PostStatus::options();
+        $statuses = PostStatus::options();
 
         return view('admin.posts.index', compact('posts', 'categories', 'statuses'));
     }
@@ -59,8 +66,8 @@ class PostController extends Controller
         $this->authorize('create', Post::class);
 
         $categories = Category::orderBy('name')->get();
-        $tags       = Tag::orderBy('name')->get();
-        $statuses   = PostStatus::options();
+        $tags = Tag::orderBy('name')->get();
+        $statuses = PostStatus::options();
 
         return view('admin.posts.create', compact('categories', 'tags', 'statuses'));
     }
@@ -73,19 +80,19 @@ class PostController extends Controller
         $this->authorize('create', Post::class);
 
         $data = $request->validate([
-            'title'         => ['required', 'string', 'max:255'],
-            'category_id'   => ['required', 'exists:categories,id'],
-            'excerpt'       => ['nullable', 'string', 'max:500'],
-            'content'       => ['required', 'string'],
-            'thumbnail'     => ['nullable', 'image', 'max:2048'], // 2MB
-            'tags'          => ['nullable', 'string', 'max:500'],
+            'title' => ['required', 'string', 'max:255'],
+            'category_id' => ['required', 'exists:categories,id'],
+            'excerpt' => ['nullable', 'string', 'max:500'],
+            'content' => ['required', 'string'],
+            'thumbnail' => ['nullable', 'image', 'max:2048'], // 2MB
+            'tags' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $data['user_id']        = $request->user()->id;
-        $data['is_featured']    = $request->boolean('is_featured');
+        $data['user_id'] = $request->user()->id;
+        $data['is_featured'] = $request->boolean('is_featured');
 
         // Generate from title
-        $data['slug'] = Str::slug($data['title']);
+        $data['slug'] = $this->uniqueSlug($data['title']);
 
         // New Posts are always draft
         $data['status'] = PostStatus::Draft->value ?? 'draft';
@@ -129,17 +136,10 @@ class PostController extends Controller
         $this->authorize('update', $post);
 
         $categories = Category::orderBy('name')->get();
-        $tags       = Tag::orderBy('name')->get();
-        $statuses   = PostStatus::options();
+        $tags = Tag::orderBy('name')->get();
+        $statuses = PostStatus::options();
 
-        $selectedTagIds = "";
-
-        if (! empty($data['tags'])) {
-            $selectedTagIds = $post->tags()->pluck('id')->toArray();
-        }
-
-
-        return view('admin.posts.edit', compact('post', 'categories', 'tags', 'statuses', 'selectedTagIds'));
+        return view('admin.posts.edit', compact('post', 'categories', 'tags', 'statuses'));
     }
 
     /**
@@ -150,17 +150,17 @@ class PostController extends Controller
         $this->authorize('update', $post);
 
         $data = $request->validate([
-            'title'       => ['required', 'string', 'max:255'],
+            'title' => ['required', 'string', 'max:255'],
             'category_id' => ['required', 'exists:categories,id'],
-            'excerpt'     => ['nullable', 'string', 'max:500'],
-            'content'     => ['required', 'string'],
-            'thumbnail'   => ['nullable', 'image', 'max:2048'], // 2MB
-            'tags'        => ['nullable', 'string', 'max:500'],
+            'excerpt' => ['nullable', 'string', 'max:500'],
+            'content' => ['required', 'string'],
+            'thumbnail' => ['nullable', 'image', 'max:2048'], // 2MB
+            'tags' => ['nullable', 'string', 'max:500'],
         ]);
 
         // If Post title is changed, regenerate slug
         if ($post->title !== $data['title']) {
-            $data['slug'] = Str::slug($data['title']);
+            $data['slug'] = $this->uniqueSlug($data['title'], $post);
         }
 
         // Thumbnail upload
@@ -206,21 +206,21 @@ class PostController extends Controller
 
     /**
      * Private function for Post Tags sync
-     * @param Post $post
-     * @param mixed $tagsInput
-     * @return void
+     *
+     * @param  mixed  $tagsInput
      */
     private function syncTags(Post $post, ?string $tagsInput): void
     {
         $tagsInput = $tagsInput ?? '';
 
         $names = collect(explode(',', $tagsInput))
-            ->map(fn($tag) => trim($tag))
+            ->map(fn ($tag) => trim($tag))
             ->filter()
             ->unique();
 
         if ($names->isEmpty()) {
             $post->tags()->sync([]);
+
             return;
         }
 
@@ -245,21 +245,21 @@ class PostController extends Controller
         $this->authorize('changeStatus', $post);
 
         $data = $request->validate([
-            'status' => ['required', 'string', Rule::in(['draft', 'under_review', 'published', 'archived']),],
+            'status' => ['required', 'string', Rule::in(PostStatus::options())],
         ]);
 
-        $oldStatus = $post->status;
-        $post->status = $data['status'];
+        $wasPublished = $post->status === PostStatus::Published;
+        $post->status = PostStatus::from($data['status']);
         $post->save();
 
         // If status changed from Not Published to Published, send Newsletter
-        if ($oldStatus !== trim(PostStatus::Published->value) && $post->status === trim(PostStatus::Published->value)) {
+        if (! $wasPublished && $post->status === PostStatus::Published) {
             $this->sendPostPublishedNewsletter($post);
         }
 
         return back()->with(
             'success',
-            'Post status updated to ' . str_replace('_', ' ', $post->status->value) . '.'
+            'Post status updated to '.str_replace('_', ' ', $post->status->value).'.'
         );
     }
 
@@ -289,5 +289,23 @@ class PostController extends Controller
                     );
                 }
             });
+    }
+
+    private function uniqueSlug(string $title, ?Post $ignorePost = null): string
+    {
+        $baseSlug = Str::slug($title) ?: 'post';
+        $slug = $baseSlug;
+        $suffix = 2;
+
+        while (
+            Post::where('slug', $slug)
+                ->when($ignorePost, fn ($query) => $query->whereKeyNot($ignorePost->id))
+                ->exists()
+        ) {
+            $slug = $baseSlug.'-'.$suffix;
+            $suffix++;
+        }
+
+        return $slug;
     }
 }

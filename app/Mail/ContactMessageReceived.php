@@ -4,7 +4,6 @@ namespace App\Mail;
 
 use App\Models\ContactMessage;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -25,7 +24,8 @@ class ContactMessageReceived extends Mailable
     public function build()
     {
         return $this
-            ->subject('New contact message from ' . $this->contactMessage->name)
+            ->subject('New contact message from '.$this->contactMessage->name)
+            ->replyTo($this->contactMessage->email, $this->contactMessage->name)
             ->markdown('mail.contact_message_received');
     }
 

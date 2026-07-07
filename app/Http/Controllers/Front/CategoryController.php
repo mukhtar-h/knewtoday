@@ -2,10 +2,8 @@
 
 namespace App\Http\Controllers\Front;
 
-use App\Enums\PostStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
-use App\Models\Post;
 use App\Models\Tag;
 use Illuminate\Http\Request;
 
@@ -13,11 +11,8 @@ class CategoryController extends Controller
 {
     public function index()
     {
-        $categories = Category::withCount(['posts' => function ($q) {
-            $q->where('status', PostStatus::Published->value)
-                ->where('updated_at', '<=', now())
-                ->with(['author', 'category'])
-                ->latest('updated_at');
+        $categories = Category::withCount(['posts' => function ($postQuery) {
+            $postQuery->published();
         }])->orderBy('name')->get();
 
         return view('front.categories.index', compact('categories'));
@@ -26,23 +21,18 @@ class CategoryController extends Controller
     public function show(Request $request, Category $category)
     {
         $query = $category->posts()
-            ->where('status', PostStatus::Published->value)
-            ->where('updated_at', '<=', now())
+            ->published()
             ->with(['tags', 'category']);
 
         // Search inside category posts
         if ($search = $request->get('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                    ->orWhere('excerpt', 'like', "%{$search}%")
-                    ->orWhere('content', 'like', "%{$search}%");
-            });
+            $query->matchingSearch($search);
         }
 
         // Filter by tag (by slug)
         if ($tagSlug = $request->get('tag')) {
-            $query->whereHas('tags', function ($q) use ($tagSlug) {
-                $q->where('slug', $tagSlug);
+            $query->whereHas('tags', function ($tagQuery) use ($tagSlug) {
+                $tagQuery->where('slug', $tagSlug);
             });
         }
 
@@ -59,9 +49,10 @@ class CategoryController extends Controller
         $posts = $query->paginate(9)->withQueryString();
 
         // Tags actually used within this category (for filter dropdown)
-        $tags = Tag::whereHas('posts', function ($q) use ($category) {
-            $q->where('category_id', $category->id)
-                ->where('status', PostStatus::Published->value);
+        $tags = Tag::whereHas('posts', function ($postQuery) use ($category) {
+            $postQuery
+                ->where('category_id', $category->id)
+                ->published();
         })
             ->orderBy('name')
             ->get();

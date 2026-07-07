@@ -39,22 +39,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Custom Blade Directive
         Blade::directive('trix', function ($expression) {
-            $allowedTags = '<div><a><strong><b><em><ul><li><ol><p><br><h1><blockquote><pre>';
-
-            return "<?php 
-            \$content = strip_tags($expression, '$allowedTags');
-            
-            // Remove any attribute starting with 'on' (onclick, onmouseover, etc.)
-            
-            \$content = preg_replace('/on\w+\s*=\s*\"[^\"]*\"/i', '', \$content);
-            
-            
-            // Remove javascript: pseudo-protocols in links
-            
-            \$content = preg_replace('/href\s*=\s*\"javascript:[^\"]*\"/i', 'href=\"#\"', \$content);
-            
-            echo nl2br(\$content); 
-        ?>";
+            return "<?php echo \\App\\Support\\HtmlSanitizer::trix($expression); ?>";
         });
     }
 }

@@ -9,6 +9,7 @@ use App\Models\NewsletterSubscriber;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\Rule;
 
 class NewsletterSubscriberController extends Controller
 {
@@ -16,17 +17,24 @@ class NewsletterSubscriberController extends Controller
     {
         Gate::authorize('admin');
 
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', Rule::in(NewsletterStatus::options())],
+        ]);
+
         $query = NewsletterSubscriber::query();
 
         // Filter
-        if ($search = $request->get('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('email', 'like', "%{$search}%")
-                    ->orWhere('name', 'like', "%{$search}%");
+        if ($searchTerm = trim($filters['search'] ?? '')) {
+            $likeSearchTerm = '%'.addcslashes($searchTerm, '\\%_').'%';
+
+            $query->where(function ($subscriberQuery) use ($likeSearchTerm) {
+                $subscriberQuery->where('email', 'like', $likeSearchTerm)
+                    ->orWhere('name', 'like', $likeSearchTerm);
             });
         }
 
-        if ($status = $request->get('status')) {
+        if ($status = $filters['status'] ?? null) {
             $query->where('status', $status);
         }
 
@@ -38,12 +46,11 @@ class NewsletterSubscriberController extends Controller
 
         // Counts for quick stats
         $stats = [
-            'total'         => NewsletterSubscriber::count(),
-            'subscribed'    => NewsletterSubscriber::where('status', NewsletterStatus::Subscribed)->count(),
-            'unsubscribed'  => NewsletterSubscriber::where('status', NewsletterStatus::Unsubscribed)->count(),
+            'total' => NewsletterSubscriber::count(),
+            'subscribed' => NewsletterSubscriber::where('status', NewsletterStatus::Subscribed)->count(),
+            'unsubscribed' => NewsletterSubscriber::where('status', NewsletterStatus::Unsubscribed)->count(),
 
         ];
-
 
         return view('admin.newsletter.subscribers.index', compact('subscribers', 'stats'));
     }
@@ -52,20 +59,27 @@ class NewsletterSubscriberController extends Controller
     {
         Gate::authorize('admin');
 
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', Rule::in(NewsletterStatus::options())],
+        ]);
+
         $query = NewsletterSubscriber::query();
 
-        if ($search = $request->get('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('email', 'like', "%{$search}%")
-                    ->orWhere('name', 'like', "%{$search}%");
+        if ($searchTerm = trim($filters['search'] ?? '')) {
+            $likeSearchTerm = '%'.addcslashes($searchTerm, '\\%_').'%';
+
+            $query->where(function ($subscriberQuery) use ($likeSearchTerm) {
+                $subscriberQuery->where('email', 'like', $likeSearchTerm)
+                    ->orWhere('name', 'like', $likeSearchTerm);
             });
         }
 
-        if ($status = $request->get('status')) {
+        if ($status = $filters['status'] ?? null) {
             $query->where('status', $status);
         }
 
-        $fileName = 'newsletter-subscribers-' . now()->format('Y-m-d_H-i') . '.csv';
+        $fileName = 'newsletter-subscribers-'.now()->format('Y-m-d_H-i').'.csv';
 
         return response()->streamDownload(function () use ($query) {
             $handle = fopen('php://output', 'w');
@@ -96,14 +110,18 @@ class NewsletterSubscriberController extends Controller
 
     public function create()
     {
+        Gate::authorize('admin');
+
         return view('admin.newsletter.subscribers.send');
     }
 
     public function send(Request $request)
     {
+        Gate::authorize('admin');
+
         $data = $request->validate([
-            'subject'   => ['required', 'string', 'max:255'],
-            'content'   => ['required', 'string', 'min:10'],
+            'subject' => ['required', 'string', 'max:255'],
+            'content' => ['required', 'string', 'min:10'],
         ]);
 
         $subject = $data['subject'];

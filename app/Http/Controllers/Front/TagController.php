@@ -3,19 +3,16 @@
 namespace App\Http\Controllers\Front;
 
 use App\Http\Controllers\Controller;
-use App\Models\Tag;
 use App\Models\Category;
-use App\Models\Post;
-use App\Enums\PostStatus;
+use App\Models\Tag;
 use Illuminate\Http\Request;
 
 class TagController extends Controller
 {
     public function index()
     {
-        $tags = Tag::withCount(['posts' => function ($q) {
-            $q->where('status', PostStatus::Published->value)
-                ->where('posts.updated_at', '<=', now());
+        $tags = Tag::withCount(['posts' => function ($postQuery) {
+            $postQuery->published();
         }])
             ->orderBy('name')
             ->get();
@@ -26,23 +23,18 @@ class TagController extends Controller
     public function show(Request $request, Tag $tag)
     {
         $query = $tag->posts()
-            ->where('status', PostStatus::Published->value)
-            ->where('posts.updated_at', '<=', now())
+            ->published()
             ->with(['category', 'tags']);
 
         // Search
         if ($search = $request->get('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('title', 'like', "%($search)%")
-                    ->orWhere('excerpt', 'like', "%($search)%")
-                    ->orWhere('content', 'like', "%($search)%");
-            });
+            $query->matchingSearch($search);
         }
 
         // Filter by Category slug
         if ($categorySlug = $request->get('category')) {
-            $query->whereHas('category', function ($q) use ($categorySlug) {
-                $q->where('slug', $categorySlug);
+            $query->whereHas('category', function ($categoryQuery) use ($categorySlug) {
+                $categoryQuery->where('slug', $categorySlug);
             });
         }
 
@@ -58,12 +50,11 @@ class TagController extends Controller
         $posts = $query->paginate(9)->withQueryString();
 
         // Categories that actually have Posts with this Tag
-        $categories = Category::whereHas('posts', function ($q) use ($tag) {
-            $q->whereHas('tags', function ($q2) use ($tag) {
-                $q2->where('tags.id', $tag->id);
+        $categories = Category::whereHas('posts', function ($postQuery) use ($tag) {
+            $postQuery->whereHas('tags', function ($tagQuery) use ($tag) {
+                $tagQuery->where('tags.id', $tag->id);
             })
-                ->where('status', PostStatus::Published->value)
-                ->where('posts.updated_at', '<=', now());
+                ->published();
         })
             ->orderBy('name')
             ->get();

@@ -5,7 +5,6 @@ namespace App\Mail;
 use App\Models\NewsletterSubscriber;
 use App\Models\Post;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -26,19 +25,20 @@ class PostPublishedNewsletter extends Mailable
     public function build()
     {
         $unsubscribeUrl = route('newsletter.unsubscribe.link', [
-            'subscriber'    => $this->subscriber->id,
-            'token'         => $this->subscriber->unsubscribe_token,
+            'subscriber' => $this->subscriber->id,
+            'token' => $this->subscriber->unsubscribe_token,
         ]);
 
         $postUrl = route('front.posts.show', $this->post);
 
         return $this
-            ->subject('New on ' . config('app.name') . ': ' . $this->post->title)
+            ->subject('New on '.config('app.name').': '.$this->post->title)
+            ->replyTo(config('mail.reply_to.address'), config('mail.reply_to.name'))
             ->markdown('mail.newsletter.post_published', [
-                'subscriber'        => $this->subscriber,
-                'post'              => $this->post,
-                'posturl'           => $postUrl,
-                'unsubscribeurl'    => $unsubscribeUrl,
+                'subscriber' => $this->subscriber,
+                'post' => $this->post,
+                'posturl' => $postUrl,
+                'unsubscribeurl' => $unsubscribeUrl,
             ]);
     }
 

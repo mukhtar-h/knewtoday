@@ -15,7 +15,8 @@ class UserController extends Controller
      */
     public function index()
     {
-        // Access is already protected by middleware: role:admin, super_admin
+        $this->authorize('manage-users');
+
         $users = User::orderBy('name')->paginate(20);
         $roles = UserRole::options();
 
@@ -51,6 +52,8 @@ class UserController extends Controller
      */
     public function edit(User $user)
     {
+        $this->authorize('manage-users');
+
         $roles = UserRole::options();
 
         return view('admin.users.edit', compact('user', 'roles'));
@@ -61,16 +64,18 @@ class UserController extends Controller
      */
     public function update(Request $request, User $user)
     {
+        $this->authorize('manage-users');
+
         $data = $request->validate([
-            'name'  => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
-            'role'  => ['required', Rule::in(UserRole::options())],
+            'role' => ['required', Rule::in(UserRole::options())],
         ]);
 
-        $user->name     = $data['name'];
-        $user->email    = $data['email'];
+        $user->name = $data['name'];
+        $user->email = $data['email'];
         // $user->role     = $data['role'];
-        $user->role     = UserRole::from($data['role']);
+        $user->role = UserRole::from($data['role']);
 
         $user->save();
 
@@ -84,6 +89,8 @@ class UserController extends Controller
      */
     public function destroy(User $user)
     {
+        $this->authorize('manage-users');
+
         $user->delete();
 
         return redirect()

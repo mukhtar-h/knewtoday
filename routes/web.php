@@ -8,20 +8,19 @@ use App\Http\Controllers\Admin\PostController;
 use App\Http\Controllers\Admin\TagController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\Front\HomeController;
-use App\Http\Controllers\Front\PostController as FrontPostController;
 use App\Http\Controllers\Front\CategoryController as FrontCategoryController;
-use App\Http\Controllers\Front\TagController as FrontTagController;
 use App\Http\Controllers\Front\CommentController as FrontCommentController;
 use App\Http\Controllers\Front\ContactController as FrontContactController;
+use App\Http\Controllers\Front\HomeController;
 use App\Http\Controllers\Front\NewsletterController;
+use App\Http\Controllers\Front\PostController as FrontPostController;
 use App\Http\Controllers\Front\RssController;
 use App\Http\Controllers\Front\SearchController;
 use App\Http\Controllers\Front\SitemapController;
+use App\Http\Controllers\Front\TagController as FrontTagController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
-
 
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
@@ -36,7 +35,6 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
 //     ->middleware(['auth', 'verified'])
 //     ->name('dashboard');
 
-
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])
         ->name('profile.edit');
@@ -45,8 +43,6 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])
         ->name('profile.destroy');
 });
-
-
 
 /**
  * Admin Routes
@@ -62,8 +58,8 @@ Route::prefix('admin')
                     ->except(['show']);
             });
 
-        // Only Admins & SuperAdmins manage Categories / Tags
-        Route::middleware('role:writer, admin, super_admin')->group(function () {
+        // Only Admins & SuperAdmins manage Categories, Tags, Users, Newsletter, and Contact Messages
+        Route::middleware('role:admin, super_admin')->group(function () {
             Route::resource('categories', CategoryController::class)->except(['show']);
             Route::resource('tags', TagController::class)->except(['show']);
             Route::resource('users', UserController::class)->except(['show', 'create', 'store']);
@@ -128,9 +124,9 @@ Route::get('/tags/{tag:slug}', [FrontTagController::class, 'show'])
 Route::get('/search', [SearchController::class, 'index'])
     ->name('front.search');
 
-
 Route::post('/stories/{post:slug}/comments', [FrontCommentController::class, 'store'])
-    ->name('front.comment.store');
+    ->name('front.comment.store')
+    ->middleware('throttle:10,1');
 
 // About: static for now
 Route::view('/about', 'front.about')->name('front.about');
@@ -153,7 +149,8 @@ Route::get('/rss.xml', [RssController::class, 'index'])
 
 // Subscriber
 Route::post('/newsletter/subscribe', [NewsletterController::class, 'subscribe'])
-    ->name('newsletter.subscribe');
+    ->name('newsletter.subscribe')
+    ->middleware('throttle:5,1');
 
 Route::get('/newsletter/unsubscribe/{subscriber}/{token}', [NewsletterController::class, 'unsubscribe'])
     ->name('newsletter.unsubscribe.link');
@@ -188,4 +185,4 @@ Route::middleware(['auth'])->group(function () {
         ->whereUuid('notification');
 });
 
-require __DIR__ . '/auth.php';
+require __DIR__.'/auth.php';

@@ -10,8 +10,9 @@ use App\Policies\CategoryPolicy;
 use App\Policies\CommentPolicy;
 use App\Policies\PostPolicy;
 use App\Policies\TagPolicy;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
+use Illuminate\Support\Facades\Gate;
+
 // use Illuminate\Support\ServiceProvider;
 
 class AuthServiceProvider extends ServiceProvider
@@ -43,7 +44,14 @@ class AuthServiceProvider extends ServiceProvider
             return in_array($user->role->value, [
                 'super_admin',
                 'admin',
-            ]);
+            ], true);
+        });
+
+        Gate::define('manage-users', function ($user) {
+            return in_array($user->role->value, [
+                'super_admin',
+                'admin',
+            ], true);
         });
 
         Gate::define('writer', function ($user) {
@@ -52,7 +60,7 @@ class AuthServiceProvider extends ServiceProvider
                 'admin',
                 'editor',
                 'writer',
-            ]);
+            ], true);
         });
     }
 }

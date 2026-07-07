@@ -16,30 +16,34 @@ class NewsletterController extends Controller
     public function subscribe(Request $request)
     {
         $data = $request->validate([
-            'email'     => ['required', 'email', 'max:255'],
-            'name'      => ['nullable', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255'],
+            'name' => ['nullable', 'string', 'max:255'],
         ]);
 
         $email = strtolower($data['email']);
-        $subscriber = NewsletterSubscriber::where('email', $data['email'])->first();
+        $subscriber = NewsletterSubscriber::where('email', $email)->first();
 
         if (! $subscriber) {
             $subscriber = NewsletterSubscriber::create([
-                'email'     => $email,
-                'status'    => 'subscribed',
+                'email' => $email,
+                'name' => $data['name'] ?? null,
+                'status' => 'subscribed',
                 'unsubscribe_token' => Str::random(40),
+                'subscribed_at' => now(),
             ]);
         } else {
             // Already exists: re-subscribe if previously unsubscribed
             if (trim($subscriber->status->value) === 'unsubscribed') {
-                $subscriber->status             = NewsletterStatus::Subscribed;
-                $subscriber->unsubscribed_at    = null;
+                $subscriber->status = NewsletterStatus::Subscribed;
+                $subscriber->subscribed_at = now();
+                $subscriber->unsubscribed_at = null;
             }
 
             if (! $subscriber->unsubscribe_token) {
                 $subscriber->unsubscribe_token = Str::random(40);
             }
 
+            $subscriber->name = $data['name'] ?? $subscriber->name;
             $subscriber->save();
         }
 
@@ -51,16 +55,16 @@ class NewsletterController extends Controller
 
     public function unsubscribe(NewsletterSubscriber $subscriber, string $token)
     {
-        if (! hash_equals((string)$subscriber->unsubscribe_token, (string)$token)) {
+        if (! hash_equals((string) $subscriber->unsubscribe_token, (string) $token)) {
             // Wrong token: prevent guessing
 
             throw ValidationException::withMessages([
-                'newsletter'    => 'Invalid unsubscribe link.',
+                'newsletter' => 'Invalid unsubscribe link.',
             ]);
         }
 
-        $subscriber->status             = NewsletterStatus::Unsubscribed;
-        $subscriber->unsubscribed_at    = now();
+        $subscriber->status = NewsletterStatus::Unsubscribed;
+        $subscriber->unsubscribed_at = now();
         $subscriber->save();
 
         return redirect()

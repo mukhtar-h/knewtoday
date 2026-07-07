@@ -4,7 +4,6 @@ namespace App\Policies;
 
 use App\Models\Category;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class CategoryPolicy
 {
@@ -13,7 +12,7 @@ class CategoryPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->isWriter() || $user->isEditor() || $user->isAdmin() || $user->isSuperAdmin();
+        return $user->isAdmin() || $user->isSuperAdmin();
     }
 
     /**
@@ -29,7 +28,7 @@ class CategoryPolicy
      */
     public function create(User $user): bool
     {
-        return $user->isWriter() || $user->isEditor() || $user->isAdmin() || $user->isSuperAdmin();
+        return $user->isAdmin() || $user->isSuperAdmin();
     }
 
     /**
@@ -37,19 +36,7 @@ class CategoryPolicy
      */
     public function update(User $user, Category $category): bool
     {
-        if ($user->isSuperAdmin() || $user->isAdmin()) {
-            return true;
-        }
-
-        if ($user->isEditor()) {
-            return true;
-        }
-
-        if ($user->isWriter()) {
-            return $category->user_id === $user->id;
-        }
-
-        return false;
+        return $user->isAdmin() || $user->isSuperAdmin();
     }
 
     /**

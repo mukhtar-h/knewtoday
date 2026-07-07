@@ -4,7 +4,6 @@ namespace App\Policies;
 
 use App\Models\Tag;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class TagPolicy
 {
@@ -13,7 +12,7 @@ class TagPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->isWriter() || $user->isEditor() || $user->isAdmin() || $user->isSuperAdmin();
+        return $user->isAdmin() || $user->isSuperAdmin();
     }
 
     /**
@@ -29,7 +28,7 @@ class TagPolicy
      */
     public function create(User $user): bool
     {
-        return $user->isWriter() || $user->isEditor() || $user->isAdmin() || $user->isSuperAdmin();
+        return $user->isAdmin() || $user->isSuperAdmin();
     }
 
     /**
@@ -37,7 +36,7 @@ class TagPolicy
      */
     public function update(User $user, Tag $tag): bool
     {
-        return $user->isWriter() || $user->isEditor() || $user->isAdmin() || $user->isSuperAdmin();
+        return $user->isAdmin() || $user->isSuperAdmin();
     }
 
     /**

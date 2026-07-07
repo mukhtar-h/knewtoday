@@ -4,12 +4,10 @@ namespace App\Http\Controllers\Front;
 
 use App\Http\Controllers\Controller;
 use App\Models\Post;
-use App\Enums\PostStatus;
 use Illuminate\Http\Request;
 
 class SearchController extends Controller
 {
-
     public function index(Request $request)
     {
         $searchTerm = $request->query('q', '');
@@ -25,25 +23,15 @@ class SearchController extends Controller
             $searchTerm = trim($data['q']);
 
             $postsQuery = Post::query()
-                ->where('status', PostStatus::Published->value)
-                ->where('updated_at', '<=', now())
-                ->with(['category', 'tags']);
-
-            $postsQuery->where(function ($sub) use ($searchTerm) {
-                $sub->where('title', 'like', "%{$searchTerm}%")
-                    ->orWhere('excerpt', 'like', "%{$searchTerm}%")
-                    ->orWhere('content', 'like', "%{$searchTerm}%")
-                    ->orWhereHas('category', function ($q2) use ($searchTerm) {
-                        $q2->where('name', 'like', "%{$searchTerm}%");
-                    })
-                    ->orWhereHas('tags', function ($q3) use ($searchTerm) {
-                        $q3->where('name', 'like', "%{$searchTerm}%");
-                    });
-            });
+                ->published()
+                ->matchingSearch($searchTerm, includeRelations: true)
+                ->with(['category', 'tags'])
+                ->latest('updated_at');
 
             $posts = $postsQuery->paginate(9)->withQueryString();
             $total = $posts->total();
         }
+
         return view('front.search', ['q' => $searchTerm, 'posts' => $posts, 'total' => $total]);
     }
 }

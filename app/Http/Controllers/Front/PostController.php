@@ -14,10 +14,8 @@ class PostController extends Controller
     public function index(Request $request)
     {
 
-
         $postsQuery = Post::query()
-            ->where('status', PostStatus::Published->value)
-            ->where('updated_at', '<=', now())
+            ->published()
             ->with(['author', 'category', 'tags']);
 
         // Search (title, excerpt, content)
@@ -27,13 +25,7 @@ class PostController extends Controller
             ]);
 
             $searchTerm = trim($data['search']);
-            $searchTerm = '%' . $searchTerm . '%';
-
-            $postsQuery->where(function ($q) use ($searchTerm) {
-                $q->where('title', 'like', $searchTerm)
-                    ->orWhere('excerpt', 'like', $searchTerm)
-                    ->orWhere('content', 'like', $searchTerm);
-            });
+            $postsQuery->matchingSearch($searchTerm);
         }
 
         // Feature Posts
@@ -47,18 +39,17 @@ class PostController extends Controller
             });
         }
 
-
         // Filter by Category (slug)
         if ($categorySlug = $request->get('category')) {
-            $postsQuery->whereHas('category', function ($q) use ($categorySlug) {
-                $q->where('slug', $categorySlug);
+            $postsQuery->whereHas('category', function ($categoryQuery) use ($categorySlug) {
+                $categoryQuery->where('slug', $categorySlug);
             });
         }
 
         // Filter by Tag (slug)
         if ($tagSlug = $request->get('tag')) {
-            $postsQuery->whereHas('tags', function ($q) use ($tagSlug) {
-                $q->where('slug', $tagSlug);
+            $postsQuery->whereHas('tags', function ($tagQuery) use ($tagSlug) {
+                $tagQuery->where('slug', $tagSlug);
             });
         }
 
@@ -81,7 +72,7 @@ class PostController extends Controller
 
         // For filter dropdowns
         $categories = Category::orderBy('name')->get();
-        $tags       = Tag::orderBy('name')->get();
+        $tags = Tag::orderBy('name')->get();
 
         return view('front.posts.index', compact('posts', 'categories', 'tags', 'sort'));
     }
@@ -120,15 +111,13 @@ class PostController extends Controller
             'comments.replies.user',
         ]);
 
-
         // Approved top-level comments with approved children
         $comments = $post->comments;
 
         // Simple related Posts with same Category and status published but this one Post
         $relatedPosts = Post::where('id', '!=', $post->id)
             ->where('category_id', $post->category_id)
-            ->where('status', PostStatus::Published->value)
-            ->where('updated_at', '<=', now())
+            ->published()
             ->latest('updated_at')
             ->take(3)
             ->get();

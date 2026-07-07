@@ -21,16 +21,17 @@ class RoleMiddleware
             abort(403, 'Unauthorized.');
         }
 
-        // Convert each $roles[] string to enum
+        $allowedRoles = [];
 
-        $allowed = array_map(function ($r) {
-            $clean_r = trim($r);
-            $lowercase_r = strtolower($clean_r);
+        foreach ($roles as $role) {
+            $allowedRole = UserRole::tryFrom(strtolower(trim($role)));
 
-            return UserRole::from($lowercase_r);
-        }, $roles);
+            if ($allowedRole) {
+                $allowedRoles[] = $allowedRole;
+            }
+        }
 
-        if (!in_array($user->role, $allowed)) {
+        if (! in_array($user->role, $allowedRoles, true)) {
             abort(403, 'You do not have permission.');
         }
 
